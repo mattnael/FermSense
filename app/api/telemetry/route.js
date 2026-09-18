@@ -8,36 +8,31 @@ const supabase = createClient(
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1550452707943260221/2gIfmXvOYObGsAk72MkOekwyHiZilVzJxplLfr0F1NxqWM25_vnaGknR6rBKQ_lYY7v5";
 
-// GET: Mengambil riwayat data telemetri dari Supabase
 export async function GET() {
   try {
     const { data, error } = await supabase
       .from('telemetry')
       .select('*')
-      .order('created_at', { ascending: true })
-      .limit(20);
+      .order('created_at', { ascending: false })
+      .limit(10);
 
     if (error) throw error;
 
-    return NextResponse.json({ status: "success", data });
+    return NextResponse.json({ status: "success", data: data ? data.reverse() : [] });
   } catch (error) {
     return NextResponse.json({ status: "error", message: error.message }, { status: 500 });
   }
 }
 
-// POST: Menyimpan data telemetri baru ke Supabase & Kirim Alert Discord
 export async function POST(request) {
   try {
     const body = await request.json();
     const { pH, temp } = body;
 
-    console.log(`[Telemetri Masuk] pH: ${pH} | Suhu: ${temp}°C`);
-
     const isTempCritical = temp >= 30.0;
     const isPhCritical = pH < 3.8 || pH > 4.1;
     const statusText = (isTempCritical || isPhCritical) ? "Kritis" : "Optimal";
 
-    // Simpan ke Supabase
     const { error: dbError } = await supabase
       .from('telemetry')
       .insert([{ ph: pH, temp: temp, status: statusText }]);
@@ -53,15 +48,13 @@ export async function POST(request) {
 
       const discordPayload = {
         username: "FermSense Alert Bot",
-        embeds: [
-          {
-            title: "⚠️ PERINGATAN FERMENTASI SOURDOUGH!",
-            description: "Kondisi adonan sourdough terdeteksi tidak ideal:\n\n" + alertDetails.join("\n"),
-            color: 15158332,
-            timestamp: new Date().toISOString(),
-            footer: { text: "FermSense System Monitoring • BIFEST Showcase" }
-          }
-        ]
+        embeds: [{
+          title: "⚠️ PERINGATAN FERMENTASI SOURDOUGH!",
+          description: "Kondisi adonan sourdough terdeteksi tidak ideal:\n\n" + alertDetails.join("\n"),
+          color: 15158332,
+          timestamp: new Date().toISOString(),
+          footer: { text: "FermSense System Monitoring • BIFEST Showcase" }
+        }]
       };
 
       await fetch(DISCORD_WEBHOOK_URL, {
@@ -80,7 +73,7 @@ export async function POST(request) {
   } catch (error) {
     return NextResponse.json(
       { status: "error", message: error.message },
-      $status = 500
+      { status: 500 }
     );
   }
 }
