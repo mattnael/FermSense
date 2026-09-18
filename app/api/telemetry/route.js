@@ -1,15 +1,31 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Inisialisasi Supabase Client menggunakan Config/Environment Vercel
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// Paste Link Webhook Discord kamu di sini
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1550452707943260221/2gIfmXvOYObGsAk72MkOekwyHiZilVzJxplLfr0F1NxqWM25_vnaGknR6rBKQ_lYY7v5";
 
+// GET: Mengambil riwayat data telemetri dari Supabase
+export async function GET() {
+  try {
+    const { data, error } = await supabase
+      .from('telemetry')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(20);
+
+    if (error) throw error;
+
+    return NextResponse.json({ status: "success", data });
+  } catch (error) {
+    return NextResponse.json({ status: "error", message: error.message }, { status: 500 });
+  }
+}
+
+// POST: Menyimpan data telemetri baru ke Supabase & Kirim Alert Discord
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -17,23 +33,18 @@ export async function POST(request) {
 
     console.log(`[Telemetri Masuk] pH: ${pH} | Suhu: ${temp}°C`);
 
-    // 1. Simpan data secara permanen ke tabel 'telemetry' di Supabase
+    const isTempCritical = temp >= 30.0;
+    const isPhCritical = pH < 3.8 || pH > 4.1;
+    const statusText = (isTempCritical || isPhCritical) ? "Kritis" : "Optimal";
+
+    // Simpan ke Supabase
     const { error: dbError } = await supabase
       .from('telemetry')
-      .insert([
-        { 
-          ph: pH, 
-          temp: temp, 
-          status: (temp >= 30.0 || pH < 3.8 || pH > 4.1) ? "Kritis" : "Optimal" 
-        }
-      ]);
+      .insert([{ ph: pH, temp: temp, status: statusText }]);
 
     if (dbError) {
       console.error("Gagal menyimpan ke Supabase:", dbError.message);
     }
-
-    const isTempCritical = temp >= 30.0;
-    const isPhCritical = pH < 3.8 || pH > 4.1;
 
     if (isTempCritical || isPhCritical) {
       let alertDetails = [];
@@ -62,14 +73,14 @@ export async function POST(request) {
 
     return NextResponse.json({
       status: "success",
-      message: "Data telemetri berhasil disimpan ke database",
+      message: "Data telemetri berhasil disimpan",
       data: { pH, temp }
     });
 
   } catch (error) {
     return NextResponse.json(
       { status: "error", message: error.message },
-      { status: 500 }
+      $status = 500
     );
   }
 }

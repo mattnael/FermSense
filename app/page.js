@@ -18,15 +18,39 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState(null);
   const [mounted, setMounted] = useState(false);
 
-  // Riwayat data telemetri untuk grafik & tabel
-  const [logs, setLogs] = useState([
-    { id: 1, time: '17:25:00', ph: 4.0, temp: 26.5, isCritical: false },
-    { id: 2, time: '17:27:00', ph: 3.9, temp: 27.0, isCritical: false },
-    { id: 3, time: '17:30:00', ph: 3.9, temp: 27.5, isCritical: false },
-  ]);
+  // Riwayat data telemetri dari Supabase
+  const [logs, setLogs] = useState([]);
+
+  // Fungsi untuk mengambil data dari API / Supabase
+  const fetchTelemetry = async () => {
+    try {
+      const res = await fetch('/api/telemetry');
+      const result = await res.json();
+      if (result.status === 'success' && result.data.length > 0) {
+        // Format data agar sesuai dengan komponen grafik
+        const formattedLogs = result.data.map((item, index) => {
+          const dateObj = new Date(item.created_at || Date.now());
+          return {
+            id: item.id || index,
+            time: dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            ph: item.ph,
+            temp: item.temp,
+            isCritical: item.status === 'Kritis' || item.ph < 3.8 || item.ph > 4.1 || item.temp >= 30.0,
+          };
+        });
+        setLogs(formattedLogs);
+      }
+    } catch (err) {
+      console.error('Gagal memuat telemetri:', err);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    fetchTelemetry();
+    // Opsional: Polling setiap 10 detik agar grafik update otomatis
+    const interval = setInterval(fetchTelemetry, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const isPhCritical = ph < 3.8 || ph > 4.1;
@@ -47,22 +71,13 @@ export default function Home() {
       const data = await res.json();
 
       if (res.ok) {
-        const now = new Date().toLocaleTimeString('id-ID');
         setStatusMessage({
           type: 'success',
           text: `Data terkirim! ${isCritical ? '⚠️ Alert Discord Dipicu!' : '🟢 Kondisi Aman.'}`,
         });
 
-        // Tambah data baru ke grafik & log
-        const newEntry = {
-          id: Date.now(),
-          time: now,
-          ph: parseFloat(ph),
-          temp: parseFloat(temp),
-          isCritical,
-        };
-
-        setLogs((prev) => [...prev, newEntry]);
+        // Ambil ulang data terbaru dari database
+        await fetchTelemetry();
       } else {
         throw new Error(data.message || 'Gagal mengirim data');
       }
