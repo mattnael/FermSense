@@ -1,4 +1,11 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Inisialisasi Supabase Client menggunakan Config/Environment Vercel
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 // Paste Link Webhook Discord kamu di sini
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1550452707943260221/2gIfmXvOYObGsAk72MkOekwyHiZilVzJxplLfr0F1NxqWM25_vnaGknR6rBKQ_lYY7v5";
@@ -9,6 +16,21 @@ export async function POST(request) {
     const { pH, temp } = body;
 
     console.log(`[Telemetri Masuk] pH: ${pH} | Suhu: ${temp}°C`);
+
+    // 1. Simpan data secara permanen ke tabel 'telemetry' di Supabase
+    const { error: dbError } = await supabase
+      .from('telemetry')
+      .insert([
+        { 
+          ph: pH, 
+          temp: temp, 
+          status: (temp >= 30.0 || pH < 3.8 || pH > 4.1) ? "Kritis" : "Optimal" 
+        }
+      ]);
+
+    if (dbError) {
+      console.error("Gagal menyimpan ke Supabase:", dbError.message);
+    }
 
     const isTempCritical = temp >= 30.0;
     const isPhCritical = pH < 3.8 || pH > 4.1;
@@ -40,7 +62,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       status: "success",
-      message: "Data telemetri berhasil diterima",
+      message: "Data telemetri berhasil disimpan ke database",
       data: { pH, temp }
     });
 
