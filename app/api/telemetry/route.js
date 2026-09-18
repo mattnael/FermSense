@@ -35,7 +35,14 @@ export async function POST(request) {
 
     const { error: dbError } = await supabase
       .from('telemetry')
-      .insert([{ ph: pH, temp: temp, status: statusText }]);
+      .insert([
+        { 
+          ph: pH, 
+          temp: temp, 
+          status: statusText,
+          timestamp: new Date().toISOString() // Menyesuaikan constraint tabel Supabase
+        }
+      ]);
 
     if (dbError) {
       console.error("Gagal menyimpan ke Supabase:", dbError.message);
