@@ -9,7 +9,7 @@ const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1550452707943260221/2gIfmXvOYObGsAk72MkOekwyHiZilVzJxplLfr0F1NxqWM25_vnaGknR6rBKQ_lYY7v5";
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 // GET: Ambil 10 data fermentasi terbaru
 export async function GET() {
