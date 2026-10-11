@@ -21,35 +21,37 @@ import {
   Sliders,
   RefreshCw,
 } from 'lucide-react';
-import { finalizeLayoutVaryPath } from 'next/dist/client/components/segment-cache/vary-path';
 
 export default function Home() {
-  const [ph, setPh] = useState(3.9);
-  const [temp, setTemp] = useState(27.5);
+  // 1. State untuk Data Live (ditampilkan di kartu atas & grafik)
+  const [livePh, setLivePh] = useState(3.9);
+  const [liveTemp, setLiveTemp] = useState(27.5);
+
+  // 2. State khusus untuk Slider Simulator di bawah
+  const [simPh, setSimPh] = useState(3.9);
+  const [simTemp, setSimTemp] = useState(27.5);
+
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [mounted, setMounted] = useState(false);
 
-  // Riwayat data telemetri dari Supabase
+  // Riwayat data telemetri dari API/Supabase
   const [logs, setLogs] = useState([]);
 
-  // Fungsi untuk mengambil data dari API / Supabase
+  // Fungsi untuk mengambil data terbaru dari API
   const fetchTelemetry = async () => {
     try {
       const res = await fetch('/api/telemetry');
 
-      // Cek jika response HTTP tidak OK
       if (!res.ok) {
         console.error(`Telemetry API Error: Status ${res.status}`);
         return;
       }
 
-      // Ambil sebagai teks terlebih dahulu untuk memastikan tidak kosong
       const text = await res.text();
       const result = text ? JSON.parse(text) : { status: 'error', data: [] };
 
-      if (result.status === 'success' && Array.isArray(result.data)) {
-        // Format data agar sesuai dengan komponen grafik
+      if (result.status === 'success' && Array.isArray(result.data) && result.data.length > 0) {
         const formattedLogs = result.data.map((item, index) => {
           const dateObj = new Date(item.created_at || item.timestamp || Date.now());
           return {
@@ -68,7 +70,13 @@ export default function Home() {
               item.temp >= 30.0,
           };
         });
+
         setLogs(formattedLogs);
+
+        // Ambil data paling akhir (terbaru) untuk ditampilkan di kartu atas
+        const latest = formattedLogs[formattedLogs.length - 1];
+        setLivePh(latest.ph);
+        setLiveTemp(latest.temp);
       }
     } catch (err) {
       console.error('Gagal memuat telemetri:', err);
@@ -86,10 +94,12 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const isPhCritical = ph < 3.8 || ph > 4.1;
-  const isTempCritical = temp >= 30.0;
+  // Status kritis dihitung berdasarkan data live dari alat
+  const isPhCritical = livePh < 3.8 || livePh > 4.1;
+  const isTempCritical = liveTemp >= 30.0;
   const isCritical = isPhCritical || isTempCritical;
 
+  // Fungsi kirim data simulator
   const handleSendTelemetry = async () => {
     setLoading(true);
     setStatusMessage(null);
@@ -98,16 +108,17 @@ export default function Home() {
       const res = await fetch('/api/telemetry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pH: parseFloat(ph), temp: parseFloat(temp) }),
+        body: JSON.stringify({ pH: parseFloat(simPh), temp: parseFloat(simTemp) }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
+        const simIsCritical = simPh < 3.8 || simPh > 4.1 || simTemp >= 30.0;
         setStatusMessage({
           type: 'success',
-          text: `Data terkirim. ${
-            isCritical ? 'Alert Discord dipicu.' : 'Kondisi fermentasi aman.'
+          text: `Data simulator terkirim. ${
+            simIsCritical ? 'Alert Discord dipicu.' : 'Kondisi fermentasi aman.'
           }`,
         });
 
@@ -160,7 +171,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Global Status Banner */}
+        {/* Global Status Banner (Menggunakan live data) */}
         <div
           className={`p-5 sm:p-6 rounded-2xl border transition-all ${
             isCritical
@@ -190,14 +201,14 @@ export default function Home() {
               </h2>
               <p className="text-xs sm:text-sm opacity-80 mt-1 leading-relaxed">
                 {isCritical
-                  ? 'Sistem mendeteksi suhu atau pH melebihi ambang batas ideal. Alert otomatis telah dikirim ke channel Discord.'
+                  ? 'Sistem mendeteksi suhu atau pH melebihi ambang batas ideal pada pembacaan sensor terbaru.'
                   : 'Keasaman (pH) dan suhu adonan berada dalam rentang ideal untuk pengembangan yeast sourdough.'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Sensor Metric Cards */}
+        {/* Sensor Metric Cards (Menampilkan livePh dan liveTemp) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {/* Card pH */}
           <div
@@ -210,7 +221,7 @@ export default function Home() {
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-2 text-zinc-400 text-xs sm:text-sm font-medium">
                 <FlaskConical className="w-4 h-4 text-amber-500" />
-                <span>Keasaman Adonan (pH)</span>
+                <span>Keasaman Adonan (pH) - Live</span>
               </div>
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
@@ -224,7 +235,7 @@ export default function Home() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl sm:text-5xl font-extrabold tracking-tight font-mono text-zinc-100">
-                {ph}
+                {livePh}
               </span>
               <span className="text-zinc-500 text-sm font-medium">pH</span>
             </div>
@@ -245,7 +256,7 @@ export default function Home() {
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-2 text-zinc-400 text-xs sm:text-sm font-medium">
                 <Thermometer className="w-4 h-4 text-sky-400" />
-                <span>Suhu Ruang Fermentasi</span>
+                <span>Suhu Ruang Fermentasi - Live</span>
               </div>
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
@@ -259,7 +270,7 @@ export default function Home() {
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl sm:text-5xl font-extrabold tracking-tight font-mono text-zinc-100">
-                {temp}
+                {liveTemp}
               </span>
               <span className="text-zinc-500 text-sm font-medium">°C</span>
             </div>
@@ -286,18 +297,8 @@ export default function Home() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={logs}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      domain={[3.0, 5.0]}
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                    />
+                    <XAxis dataKey="time" stroke="#71717a" fontSize={11} tickLine={false} />
+                    <YAxis domain={[3.0, 5.0]} stroke="#71717a" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#18181b',
@@ -307,14 +308,7 @@ export default function Home() {
                         fontSize: '12px',
                       }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="ph"
-                      stroke="#f59e0b"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: '#f59e0b' }}
-                      activeDot={{ r: 6 }}
-                    />
+                    <Line type="monotone" dataKey="ph" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -335,18 +329,8 @@ export default function Home() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={logs}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      domain={[20.0, 40.0]}
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                    />
+                    <XAxis dataKey="time" stroke="#71717a" fontSize={11} tickLine={false} />
+                    <YAxis domain={[20.0, 40.0]} stroke="#71717a" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: '#18181b',
@@ -356,14 +340,7 @@ export default function Home() {
                         fontSize: '12px',
                       }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="temp"
-                      stroke="#38bdf8"
-                      strokeWidth={2.5}
-                      dot={{ r: 4, fill: '#38bdf8' }}
-                      activeDot={{ r: 6 }}
-                    />
+                    <Line type="monotone" dataKey="temp" stroke="#38bdf8" strokeWidth={2.5} dot={{ r: 4, fill: '#38bdf8' }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -371,7 +348,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Simulator & Telemetry Control */}
+        {/* Simulator & Telemetry Control (Menggunakan simPh dan simTemp) */}
         <div className="p-5 sm:p-6 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-6">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
@@ -388,32 +365,32 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-2">
               <div className="flex justify-between text-xs sm:text-sm">
-                <label className="text-zinc-400 font-medium">Atur Nilai pH:</label>
-                <span className="font-bold text-amber-400 font-mono">{ph}</span>
+                <label className="text-zinc-400 font-medium">Atur Nilai pH Simulator:</label>
+                <span className="font-bold text-amber-400 font-mono">{simPh}</span>
               </div>
               <input
                 type="range"
                 min="3.0"
                 max="5.0"
                 step="0.1"
-                value={ph}
-                onChange={(e) => setPh(e.target.value)}
+                value={simPh}
+                onChange={(e) => setSimPh(e.target.value)}
                 className="w-full accent-amber-500 cursor-pointer bg-zinc-800 h-2 rounded-lg"
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs sm:text-sm">
-                <label className="text-zinc-400 font-medium">Atur Suhu (°C):</label>
-                <span className="font-bold text-sky-400 font-mono">{temp} °C</span>
+                <label className="text-zinc-400 font-medium">Atur Suhu Simulator (°C):</label>
+                <span className="font-bold text-sky-400 font-mono">{simTemp} °C</span>
               </div>
               <input
                 type="range"
                 min="20.0"
                 max="40.0"
                 step="0.5"
-                value={temp}
-                onChange={(e) => setTemp(e.target.value)}
+                value={simTemp}
+                onChange={(e) => setSimTemp(e.target.value)}
                 className="w-full accent-sky-400 cursor-pointer bg-zinc-800 h-2 rounded-lg"
               />
             </div>

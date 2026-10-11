@@ -11,7 +11,7 @@ const supabase = (supabaseUrl && supabaseAnonKey)
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1550452707943260221/2gIfmXvOYObGsAk72MkOekwyHiZilVzJxplLfr0F1NxqWM25_vnaGknR6rBKQ_lYY7v5";
 
-// GET: Ambil 10 data telemetri terbaru
+// GET: Ambil 10 data fermentasi terbaru
 export async function GET() {
   try {
     if (!supabase) {
@@ -20,7 +20,7 @@ export async function GET() {
     }
 
     const { data, error } = await supabase
-      .from('telemetry')
+      .from('fermentations')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(10);
@@ -36,7 +36,7 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { status: "error", message: error.message || "Gagal mengambil data telemetri" }, 
+      { status: "error", message: error.message || "Gagal mengambil data fermentasi" }, 
       { status: 500 }
     );
   }
@@ -62,16 +62,16 @@ export async function POST(request) {
     const isPhCritical = pH < 3.8 || pH > 4.1;
     const statusText = (isTempCritical || isPhCritical) ? "Kritis" : "Optimal";
 
-    // 1. Simpan ke Supabase jika terhubung
+    // 1. Simpan ke tabel 'fermentations' di Supabase jika terhubung
     if (supabase) {
       const { error: dbError } = await supabase
-        .from('telemetry')
+        .from('fermentations')
         .insert([
           { 
             ph: pH, 
             temp: temp, 
             status: statusText,
-            timestamp: new Date().toISOString()
+            created_at: new Date().toISOString()
           }
         ]);
 
