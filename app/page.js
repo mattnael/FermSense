@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import {
   LineChart,
@@ -134,8 +135,59 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 md:p-10 font-sans selection:bg-amber-500/30">
-      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 sm:p-6 md:p-10 font-sans selection:bg-amber-500/30 relative overflow-x-hidden">
+      
+      {/* --- BACKGROUND --- */}
+      <div 
+        className="absolute inset-0 bg-[url('/bg.jpg')] bg-cover bg-center opacity-15 pointer-events-none z-0"
+      />
+
+      {/* --- STIKER KIRI --- */}
+      <div className="hidden xl:flex fixed left-6 top-1/2 -translate-y-1/2 flex-col gap-8 z-10 pointer-events-none opacity-85 hover:opacity-100 transition-opacity">
+        <div className="w-40 relative drop-shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-105 transition-transform pointer-events-auto">
+          <Image
+            src="/stickers/rimuru.png"
+            alt="Rimuru Bread"
+            width={160}
+            height={160}
+            className="w-full h-auto object-contain"
+          />
+        </div>
+        <div className="w-36 relative drop-shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-105 transition-transform pointer-events-auto">
+          <Image
+            src="/stickers/cat_bread2.png"
+            alt="Cat Bread"
+            width={144}
+            height={144}
+            className="w-full h-auto object-contain"
+          />
+        </div>
+      </div>
+
+      {/* --- STIKER KANAN --- */}
+      <div className="hidden xl:flex fixed right-6 top-1/2 -translate-y-1/2 flex-col gap-8 z-10 pointer-events-none opacity-85 hover:opacity-100 transition-opacity">
+        <div className="w-40 relative drop-shadow-[0_0_15px_rgba(56,189,248,0.25)] hover:scale-105 transition-transform pointer-events-auto">
+          <Image
+            src="/stickers/gojo.png"
+            alt="Gojo Bread"
+            width={160}
+            height={160}
+            className="w-full h-auto object-contain"
+          />
+        </div>
+        <div className="w-40 relative drop-shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-105 transition-transform pointer-events-auto">
+          <Image
+            src="/stickers/geto.png"
+            alt="Geto Bread"
+            width={160}
+            height={160}
+            className="w-full h-auto object-contain"
+          />
+        </div>
+      </div>
+
+      {/* Konten Utama Dashboard */}
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8 relative z-20">
         
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/80 pb-5 gap-4">
